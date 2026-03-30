@@ -1,17 +1,15 @@
-# Results: JEPA LeWorldModel for Multi-Object Physics Prediction
+# LeWorldModel (JEPA) for Multi-Object Physics Prediction
 
 ## Overview
 
 This document reports experimental results on training Joint Embedding
 Predictive Architecture (JEPA) world models to learn 2D physics from pixel
 observations. The core method follows LeWorldModel (Maes et al. 2026), using
-a two-term objective — MSE prediction loss plus SIGReg anti-collapse
-regularisation — to learn latent dynamics end-to-end from raw frames.
+a two-term objective, MSE prediction loss plus SIGReg anti-collapse
+regularisation, to learn latent dynamics end-to-end from raw frames.
 
 Experiments progress from a single bouncing ball (baseline validation) to a
-two-ball collision system (multi-object interaction learning). The single-ball
-notebook is included in this repository as a reference and as the foundation
-for the architectural decisions applied to the two-ball system.
+two-ball collision system (multi-object interaction learning).
 
 ---
 
@@ -19,11 +17,13 @@ for the architectural decisions applied to the two-ball system.
 
 ### Setup
 
+<img width="1439" height="152" alt="output" src="https://github.com/user-attachments/assets/b2084bff-f282-4ce3-bebd-ce015b4fddcf" />
+
 A ball bounces in a 2D box under gravity with elastic wall collisions. The
 observation is a 16×16 rasterised grid (the ball rendered as a Gaussian blob),
 giving a 256-dimensional input per timestep. The encoder is a two-layer MLP
-(256 → 128 → 32), the predictor is a history-conditioned two-layer MLP
-(96 → 64 → 32) taking 3 concatenated latent vectors as input, and the model
+(256  128 -> 32), the predictor is a history-conditioned two-layer MLP
+(96 -> 64 -> 32) taking 3 concatenated latent vectors as input, and the model
 predicts 3 steps ahead autoregressively.
 
 Training: 100 epochs, batch size 8192, AdamW with cosine LR schedule.
@@ -39,10 +39,10 @@ manifested as pred_loss ≈ 0, SIGReg stuck at 0.41, and the encoder outputting
 a single constant representation for all inputs.
 
 **History-conditioned prediction is essential for velocity-dependent anomalies.**
-With a single-frame predictor (z_t → z_{t+1}), the model could detect
+With a single-frame predictor (z_t -> z_{t+1}), the model could detect
 teleportation (position discontinuity, 2400× above baseline) but was
 completely blind to velocity flip and gravity change (identical surprise to
-normal trajectories). Adding 3-frame history (z_{t-2}, z_{t-1}, z_t → z_{t+1})
+normal trajectories). Adding 3-frame history (z_{t-2}, z_{t-1}, z_t -> z_{t+1})
 enabled velocity flip detection at 120× above baseline. The predictor infers
 velocity implicitly from the difference between consecutive latent vectors.
 
@@ -160,7 +160,7 @@ to [0, 1]).
 A critical methodological refinement was needed for the two-ball evaluation.
 The initial evaluation generated random trajectories and disabled collisions
 at a fixed timestep. However, most random trajectories have no collision near
-that timestep — disabling a collision that never happens produces no surprise.
+that timestep, disabling a collision that never happens produces no surprise.
 
 **Collision-targeted trajectories.** The evaluation was updated to generate
 trajectories where a collision is geometrically guaranteed: balls are placed
@@ -183,9 +183,9 @@ mass_change rather than a narrow window around a fixed step.
 
 ### Experiment 1: MLP Encoder (64×64 grid)
 
-Architecture: Linear encoder (4096 → 512 → 64), 2.16M parameters.
+Architecture: Linear encoder (4096 -> 512 -> 64), 2.16M parameters.
 Dataset: 500 trajectories of 80 steps (reduced from 2000 due to memory
-constraints at 64×64 resolution — 44GB peak memory caused swap thrashing).
+constraints at 64×64 resolution (44GB peak memory caused swap thrashing)).
 
 | Metric         | Value    |
 |----------------|----------|
@@ -205,7 +205,7 @@ baseline — the encoder had no spatial structure to represent per-object state.
 
 ### Experiment 2: MLP Encoder (32×32 grid), Bias Switching
 
-Architecture: Linear encoder (1024 → 256 → 64), 311K parameters.
+Architecture: Linear encoder (1024 -> 256 -> 64), 311K parameters.
 Training with bias for first 50 epochs, then bias removed mid-training.
 
 | Metric         | Value    |
@@ -226,7 +226,7 @@ encoder's task was straightforward enough to recover from the disruption.
 
 ### Experiment 3: MLP Encoder (32×32 grid), No Bias, λ=0.5
 
-Architecture: Linear encoder (1024 → 256 → 64), 311K parameters.
+Architecture: Linear encoder (1024 -> 256 -> 64), 311K parameters.
 No bias from epoch 1, SIGReg λ reduced from 1.0 to 0.5.
 
 | Metric         | Value    |
@@ -262,10 +262,10 @@ separated blobs represent two distinct objects. A 3-layer convolutional encoder
 was introduced:
 
 ```
-Conv2d(1→16, 3×3, stride 2) → ReLU    # (1, 32, 32) → (16, 16, 16)
-Conv2d(16→32, 3×3, stride 2) → ReLU   # (16, 16, 16) → (32, 8, 8)
-Conv2d(32→64, 3×3, stride 2) → ReLU   # (32, 8, 8) → (64, 4, 4)
-Flatten → Int8Linear(1024 → 64)        # (1024,) → (64,)
+Conv2d(1->16, 3×3, stride 2) -> ReLU    # (1, 32, 32) -> (16, 16, 16)
+Conv2d(16->32, 3×3, stride 2) -> ReLU   # (16, 16, 16) -> (32, 8, 8)
+Conv2d(32->64, 3×3, stride 2) -> ReLU   # (32, 8, 8) -> (64, 4, 4)
+Flatten -> Int8Linear(1024 -> 64)        # (1024,) -> (64,)
 ```
 
 The conv layers provide three critical properties the MLP lacked:
@@ -320,20 +320,20 @@ two-ball experiment. Position R² of 0.34 means the encoder is learning where
 the balls are — not perfectly, but the representation has real spatial content.
 The MLP's representation was worse than a constant prediction (R² < 0).
 
-**Mass change detection improved 5×** (3.7× → 18.8× above baseline). The
+**Mass change detection improved 5×** (3.7× -> 18.8× above baseline). The
 model now captures enough per-object structure that a change in collision
 response (one ball suddenly 10× heavier) registers as anomalous. The heavier
 ball barely deflects while the lighter ball flies away — different from the
 symmetric bounce the predictor expects.
 
-**Pass-through detection improved 2×** (3.2× → 6.4× above baseline). The
+**Pass-through detection improved 2×** (3.2× -> 6.4× above baseline). The
 model expects a bounce when the balls converge and instead sees them continue
 straight through. The detection is weaker than mass_change because the pixel
 difference between "bounce" and "pass through" is subtle — both involve two
 blobs near the same location, just with different subsequent trajectories. The
 3-step prediction window captures a few frames of divergence.
 
-**Lower baseline surprise** (0.012 → 0.004) indicates more confident
+**Lower baseline surprise** (0.012 -> 0.004) indicates more confident
 predictions under normal conditions. The conv encoder's spatial features give
 the predictor more precise input, reducing prediction noise during free flight
 and wall bounces. This lower noise floor is what makes the interaction
@@ -387,7 +387,7 @@ to JEPA — it is a standard consequence of reduced optimizer steps per epoch.
 |--------------------|-------------|--------------|---------------|
 | Bias throughout    | 0.001593    | —            | —             |
 | No-bias throughout | 0.001724    | 0.002021     | —             |
-| Bias → no-bias     | 0.001547    | 0.011783     | 0.002596      |
+| Bias -> no-bias     | 0.001547    | 0.011783     | 0.002596      |
 
 Bias switching worked for the single ball (negligible disruption, marginally
 better final quality) and for the conv encoder (brief disruption, full
@@ -414,8 +414,8 @@ second derivative requiring either longer history or longer prediction horizon.
 
 | Encoder        | Params | Val Pred | Disappear | Pass-through | Mass Chg | Pos R²  |
 |----------------|--------|----------|-----------|--------------|----------|---------|
-| MLP 4096→512   | 2.16M  | 0.002856 | 0.623     | 0.002 (1×)   | 0.002(1×)| −1.30   |
-| MLP 1024→256   | 311K   | 0.002021 | 2.677     | 0.038 (3.2×) | 0.044(3.7×)| −0.14 |
+| MLP 4096->512   | 2.16M  | 0.002856 | 0.623     | 0.002 (1×)   | 0.002(1×)| −1.30   |
+| MLP 1024->256   | 311K   | 0.002021 | 2.677     | 0.038 (3.2×) | 0.044(3.7×)| −0.14 |
 | Conv 3-layer   | 121K   | 0.002596 | 0.844     | 0.028 (6.4×) | 0.081(19×)| +0.34  |
 
 The parenthesised values show the ratio to baseline (normal) surprise for each
@@ -495,8 +495,8 @@ and encoder collapse characteristics.
 ### Single-Ball Model (16×16 grid)
 
 ```
-Encoder:    256  → Linear → 128  → ReLU → Linear → 32
-Predictor:  96   → Linear → 64   → ReLU → Linear → 32
+Encoder:    256  -> Linear -> 128  -> ReLU -> Linear -> 32
+Predictor:  96   -> Linear -> 64   -> ReLU -> Linear -> 32
                     (3 × 32 concatenated history)
 ```
 
@@ -505,8 +505,8 @@ Parameters: 45,312 (no bias). LZMA compressed INT8: 39.0 KB.
 ### Two-Ball Model — MLP (32×32 grid)
 
 ```
-Encoder:    1024 → Linear → 256  → ReLU → Linear → 64
-Predictor:  192  → Linear → 128  → ReLU → Linear → 64
+Encoder:    1024 -> Linear -> 256  -> ReLU -> Linear -> 64
+Predictor:  192  -> Linear -> 128  -> ReLU -> Linear -> 64
                     (3 × 64 concatenated history)
 ```
 
@@ -516,11 +516,11 @@ Parameters: 311,296 (no bias). INT8: 306.4 KB.
 
 ```
 Encoder:    (1, 32, 32)
-            → Conv2d(1→16, 3×3, stride 2) → ReLU   → (16, 16, 16)
-            → Conv2d(16→32, 3×3, stride 2) → ReLU   → (32, 8, 8)
-            → Conv2d(32→64, 3×3, stride 2) → ReLU   → (64, 4, 4)
-            → Flatten → Int8Linear(1024 → 64)
-Predictor:  192  → Linear → 128  → ReLU → Linear → 64
+            -> Conv2d(1->16, 3×3, stride 2) -> ReLU   -> (16, 16, 16)
+            -> Conv2d(16->32, 3×3, stride 2) -> ReLU   -> (32, 8, 8)
+            -> Conv2d(32->64, 3×3, stride 2) -> ReLU   -> (64, 4, 4)
+            -> Flatten -> Int8Linear(1024 -> 64)
+Predictor:  192  -> Linear -> 128  -> ReLU -> Linear -> 64
                     (3 × 64 concatenated history)
 ```
 
